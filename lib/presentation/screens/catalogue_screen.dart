@@ -238,7 +238,7 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
                             Text(
                               '${product.discountPercentage.toStringAsFixed(0)}% OFF',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.green,
+                                color: Colors.pink,
                               ),
                             ),
                           ],
