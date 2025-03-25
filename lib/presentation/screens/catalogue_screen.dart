@@ -79,6 +79,8 @@ class _CatalogueScreenState extends State<CatalogueScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+                backgroundColor: Colors.pink[50], 
+
       appBar: AppBar(
         title: const Text('Catalogue'),
         actions: [
