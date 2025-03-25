@@ -3,11 +3,11 @@ import 'package:shopping_app/data/models/product_model.dart';
 import 'package:shopping_app/data/repositories/api_service.dart';
 import 'package:shopping_app/presentation/bloc/product_state.dart';
 
-
 class ProductBloc extends Cubit<ProductState> {
   final ApiService _apiService = ApiService();
   final List<Product> _cart = [];
   final Map<int, int> _cartQuantities = {}; // Track product quantities
+  bool _hasReachedMax = false;
 
   ProductBloc() : super(ProductInitial());
 
@@ -16,19 +16,39 @@ class ProductBloc extends Cubit<ProductState> {
 
   Future<void> fetchProducts(int page) async {
     try {
-      emit(ProductLoading());
+      // If we've already reached the max, don't fetch more
+      if (_hasReachedMax && page > 1) return;
+
+      // Show loading state for first page
+      if (page == 1) {
+        emit(ProductLoading());
+      }
+
       final products = await _apiService.fetchProducts(page);
       
-      // If it's the first page, reset the products list
+      // Check if we've reached the end of products
+      _hasReachedMax = products.isEmpty;
+
+      // Handle state based on current state and page
+      final currentState = state;
+      
       if (page == 1) {
-        emit(ProductLoaded(products: products, isFirstLoad: true));
-      } else {
-        // For subsequent pages, append to existing products
-        final currentState = state;
-        if (currentState is ProductLoaded) {
-          final updatedProducts = [...currentState.products, ...products];
-          emit(ProductLoaded(products: updatedProducts, isFirstLoad: false));
-        }
+        // First page load - replace existing products
+        emit(ProductLoaded(
+          products: products, 
+          isFirstLoad: true,
+          hasReachedMax: _hasReachedMax,
+          cartQuantities: _cartQuantities
+        ));
+      } else if (currentState is ProductLoaded) {
+        // Subsequent pages - append to existing products
+        final updatedProducts = [...currentState.products, ...products];
+        emit(ProductLoaded(
+          products: updatedProducts, 
+          isFirstLoad: false,
+          hasReachedMax: _hasReachedMax,
+          cartQuantities: _cartQuantities
+        ));
       }
     } catch (e) {
       emit(ProductError(message: e.toString()));
@@ -48,7 +68,18 @@ class ProductBloc extends Cubit<ProductState> {
       _cart.add(product);
     }
 
-    emit(CartUpdated(cart: _cart, cartQuantities: _cartQuantities));
+    // Update state based on current state
+    final currentState = state;
+    if (currentState is ProductLoaded) {
+      emit(ProductLoaded(
+        products: currentState.products,
+        isFirstLoad: currentState.isFirstLoad,
+        hasReachedMax: _hasReachedMax,
+        cartQuantities: Map.from(_cartQuantities)
+      ));
+    } else {
+      emit(CartUpdated(cart: _cart, cartQuantities: _cartQuantities));
+    }
   }
 
   void removeFromCart(Product product) {
@@ -62,7 +93,45 @@ class ProductBloc extends Cubit<ProductState> {
       }
     }
 
-    emit(CartUpdated(cart: _cart, cartQuantities: _cartQuantities));
+    // Update state based on current state
+    final currentState = state;
+    if (currentState is ProductLoaded) {
+      emit(ProductLoaded(
+        products: currentState.products,
+        isFirstLoad: currentState.isFirstLoad,
+        hasReachedMax: _hasReachedMax,
+        cartQuantities: Map.from(_cartQuantities)
+      ));
+    } else {
+      emit(CartUpdated(cart: _cart, cartQuantities: _cartQuantities));
+    }
+  }
+
+  void decreaseQuantity(Product product) {
+    // If product is in cart
+    if (_cartQuantities.containsKey(product.id)) {
+      // Decrease quantity
+      _cartQuantities[product.id] = (_cartQuantities[product.id] ?? 0) - 1;
+
+      // If quantity becomes 0, remove from cart
+      if ((_cartQuantities[product.id] ?? 0) <= 0) {
+        _cartQuantities.remove(product.id);
+        _cart.removeWhere((p) => p.id == product.id);
+      }
+
+      // Update state based on current state
+      final currentState = state;
+      if (currentState is ProductLoaded) {
+        emit(ProductLoaded(
+          products: currentState.products,
+          isFirstLoad: currentState.isFirstLoad,
+          hasReachedMax: _hasReachedMax,
+          cartQuantities: Map.from(_cartQuantities)
+        ));
+      } else {
+        emit(CartUpdated(cart: _cart, cartQuantities: _cartQuantities));
+      }
+    }
   }
 
   double calculateTotalPrice() {
@@ -70,5 +139,11 @@ class ProductBloc extends Cubit<ProductState> {
       final quantity = _cartQuantities[product.id] ?? 0;
       return total + (product.discountedPrice * quantity);
     });
+  }
+
+  // Optional: Method to reset products (useful for pull-to-refresh)
+  void resetProducts() {
+    _hasReachedMax = false;
+    fetchProducts(1);
   }
 }

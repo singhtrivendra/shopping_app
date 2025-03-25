@@ -3,8 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shopping_app/presentation/bloc/product_bloc.dart';
 import 'package:shopping_app/presentation/bloc/product_state.dart';
 
-
 class CartScreen extends StatelessWidget {
+  const CartScreen({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -16,6 +17,29 @@ class CartScreen extends StatelessWidget {
           final productBloc = context.read<ProductBloc>();
           final cart = productBloc.cart;
           final cartQuantities = productBloc.cartQuantities;
+
+          // If cart is empty, show "Cart is Empty" message
+          if (cart.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Cart is Empty',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Navigate to shop screen or home screen
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                    },
+                    child: const Text('Shop Now'),
+                  ),
+                ],
+              ),
+            );
+          }
 
           return Column(
             children: [
@@ -47,13 +71,18 @@ class CartScreen extends StatelessWidget {
                           IconButton(
                             icon: const Icon(Icons.remove),
                             onPressed: () {
-                              productBloc.removeFromCart(product);
+                              // Use a method that correctly updates quantity
+                              productBloc.decreaseQuantity(product);
                             },
                           ),
-                          Text(quantity.toString()),
+                          Text(
+                            quantity.toString(),
+                            style: const TextStyle(fontSize: 16),
+                          ),
                           IconButton(
                             icon: const Icon(Icons.add),
                             onPressed: () {
+                              // Use a method that correctly adds to cart
                               productBloc.addToCart(product);
                             },
                           ),
@@ -63,23 +92,37 @@ class CartScreen extends StatelessWidget {
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
+              // Bottom section with total and checkout
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.5),
+                      spreadRadius: 2,
+                      blurRadius: 5,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       'Total: ₹${productBloc.calculateTotalPrice().toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () {
                         // Implement checkout logic
                       },
                       style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
+                        minimumSize: const Size(120, 50),
                       ),
-                      child: const Text('Check Out'),
+                      child: const Text(
+                        'Check Out', 
+                        style: TextStyle(fontSize: 16, color: Colors.white),
+                      ),
                     ),
                   ],
                 ),
